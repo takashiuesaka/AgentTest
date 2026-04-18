@@ -160,7 +160,7 @@ AgentTest/
 ## 検討事項
 
 ### 前提条件
-- .NET 9 SDK がインストール済みであること
+- .NET 10 SDK がインストール済みであること
 - Node.js (LTS) と npm がインストール済みであること
 - .NET Aspire workload が導入済みであること（`dotnet workload install aspire`）
 - Docker または Podman が利用可能であること（Aspire ダッシュボードのコンテナ実行に必要）
