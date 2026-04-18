@@ -47,9 +47,15 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # 既存のリモートブランチがあれば削除
+          if git ls-remote --exit-code --heads origin "$BRANCH_NAME" >/dev/null 2>&1; then
+            git push origin --delete "$BRANCH_NAME"
+          fi
+
           git checkout -b "$BRANCH_NAME"
           git commit --allow-empty -m "chore: start work on issue #${ISSUE_NUMBER}"
-          git push origin "$BRANCH_NAME"
+          git push -u origin "$BRANCH_NAME"
 
           PR_URL=$(gh pr create \
             --base main \
