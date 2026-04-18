@@ -1,0 +1,16 @@
+# .NET build outputs
+bin/
+obj/
+
+# Node.js
+node_modules/
+frontend/node_modules/
+
+# IDE
+.vs/
+.vscode/
+*.user
+
+# OS
+.DS_Store
+Thumbs.db
