@@ -45,6 +45,8 @@ jobs:
           ISSUE_NUMBER="${{ steps.issue.outputs.number }}"
           BRANCH_NAME="copilot/issue-${ISSUE_NUMBER}"
 
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -b "$BRANCH_NAME"
           git commit --allow-empty -m "chore: start work on issue #${ISSUE_NUMBER}"
           git push origin "$BRANCH_NAME"
