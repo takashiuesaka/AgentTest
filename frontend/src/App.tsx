@@ -46,7 +46,7 @@ function App() {
       </header>
 
       <main className="main-content">
-        <section className="weather-section" aria-labelledby="hello-heading">
+        <section className="hello-section" aria-labelledby="hello-heading">
           <div className="card">
             <div className="section-header">
               <h2 id="hello-heading" className="section-title">こんにちは API</h2>

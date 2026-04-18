@@ -28,9 +28,9 @@
 
 | レイヤー | 技術 | バージョン |
 |---|---|---|
-| バックエンド | ASP.NET Core WebAPI | .NET 9 |
-| フロントエンド | React + Vite | React 19 / Vite 6 |
-| オーケストレーション | .NET Aspire | 9.x |
+| バックエンド | ASP.NET Core WebAPI | .NET 10 |
+| フロントエンド | React + Vite | React 19 / Vite 8 |
+| オーケストレーション | .NET Aspire | 13.x |
 | パッケージ管理 (JS) | npm | 最新 |
 | パッケージ管理 (.NET) | NuGet | - |
 
@@ -60,15 +60,13 @@
 ```
 AgentTest/
 ├── AgentTest.AppHost/          # Aspire オーケストレーター
-│   ├── Program.cs
+│   ├── AppHost.cs
 │   └── AgentTest.AppHost.csproj
-├── AgentTest.ServiceDefaults/  # 共通サービス設定
-│   ├── Extensions.cs
-│   └── AgentTest.ServiceDefaults.csproj
-├── AgentTest.ApiService/       # ASP.NET Core WebAPI
+├── AgentTest.Server/           # ASP.NET Core WebAPI（Extensions.cs で ServiceDefaults を内包）
 │   ├── Program.cs
-│   └── AgentTest.ApiService.csproj
-├── AgentTest.Web/              # React フロントエンド
+│   ├── Extensions.cs
+│   └── AgentTest.Server.csproj
+├── frontend/                   # React + Vite フロントエンド
 │   ├── src/
 │   │   ├── App.tsx
 │   │   └── main.tsx

@@ -1,8 +1,12 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
 var server = builder.AddProject<Projects.AgentTest_Server>("server")
-    .WithHttpHealthCheck("/health")
     .WithExternalHttpEndpoints();
+
+if (builder.Environment.EnvironmentName == "Development")
+{
+    server = server.WithHttpHealthCheck("/health");
+}
 
 var webfrontend = builder.AddViteApp("webfrontend", "../frontend")
     .WithReference(server)
