@@ -3,6 +3,12 @@ name: Copilot Agent Pipeline
 on:
   issues:
     types: [opened, reopened]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: '対象のIssue番号'
+        required: true
+        type: number
 
 permissions:
   contents: write
@@ -15,18 +21,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup GitHub Copilot CLI
-        run: gh extension install github/gh-copilot
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Get issue content
         id: issue
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
-          ISSUE_TITLE: ${{ github.event.issue.title }}
         run: |
+          ISSUE_NUMBER="${{ github.event.issue.number || github.event.inputs.issue_number }}"
+          ISSUE_TITLE=$(gh issue view "$ISSUE_NUMBER" --json title -q '.title')
           ISSUE_BODY=$(gh issue view "$ISSUE_NUMBER" --json body -q '.body')
           echo "number=$ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
           echo "title=$ISSUE_TITLE" >> "$GITHUB_OUTPUT"
