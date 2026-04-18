@@ -3,6 +3,12 @@ name: Copilot Review Handler
 on:
   pull_request_review:
     types: [submitted]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: '対象のPR番号'
+        required: true
+        type: number
 
 permissions:
   contents: write
@@ -11,17 +17,28 @@ permissions:
 
 jobs:
   handle-copilot-review:
-    # Copilot のレビューのみを対象とする
+    # pull_request_review の場合は Copilot のレビューのみ対象、workflow_dispatch は常に実行
     if: >-
+      github.event_name == 'workflow_dispatch' ||
       github.event.review.user.login == 'copilot[bot]' ||
       github.event.review.user.login == 'github-copilot[bot]' ||
       github.event.review.user.login == 'copilot'
     runs-on: ubuntu-latest
     steps:
+      - name: Resolve PR number and branch
+        id: pr-info
+        env:
+          GH_TOKEN: ${{ secrets.COPILOT_PAT }}
+        run: |
+          PR_NUMBER="${{ github.event.pull_request.number || github.event.inputs.pr_number }}"
+          HEAD_REF=$(gh pr view "$PR_NUMBER" --repo "${{ github.repository }}" --json headRefName -q '.headRefName')
+          echo "number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "branch=$HEAD_REF" >> "$GITHUB_OUTPUT"
+
       - name: Checkout PR branch
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.ref }}
+          ref: ${{ steps.pr-info.outputs.branch }}
           fetch-depth: 0
 
       - name: Post review handling start comment
@@ -31,7 +48,7 @@ jobs:
         run: |
           COMMENT_ID=$(gh api \
             -X POST \
-            "/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
+            "/repos/${{ github.repository }}/issues/${{ steps.pr-info.outputs.number }}/comments" \
             -f body="🔄 **レビュー対応開始**: review-responder エージェントがCopilotのレビューコメントを処理中です..." \
             --jq '.id')
           echo "id=$COMMENT_ID" >> "$GITHUB_OUTPUT"
@@ -40,7 +57,7 @@ jobs:
         env:
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
           GH_TOKEN: ${{ secrets.COPILOT_PAT }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_NUMBER: ${{ steps.pr-info.outputs.number }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           OWNER=$(echo "$GITHUB_REPOSITORY" | cut -d'/' -f1)
@@ -69,8 +86,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
-          git diff --cached --quiet || git commit -m "fix: apply copilot review suggestions for PR #${{ github.event.pull_request.number }}"
-          git push origin "${{ github.event.pull_request.head.ref }}"
+          git diff --cached --quiet || git commit -m "fix: apply copilot review suggestions for PR #${{ steps.pr-info.outputs.number }}"
+          git push origin "${{ steps.pr-info.outputs.branch }}"
 
       - name: Update comment to complete
         env:
