@@ -1,0 +1,26 @@
+# .NET build outputs
+bin/
+obj/
+*.user
+
+# Node
+node_modules/
+dist/
+
+# Vite
+frontend/dist/
+
+# Aspire
+.aspire/
+
+# IDE
+.vs/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln.docstates
+
+# OS
+.DS_Store
+Thumbs.db
