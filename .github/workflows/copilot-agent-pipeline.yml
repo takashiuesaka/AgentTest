@@ -82,6 +82,9 @@ jobs:
             --jq '.id')
           echo "id=$COMMENT_ID" >> "$GITHUB_OUTPUT"
 
+      - name: Ensure plan directory exists
+        run: mkdir -p plan
+
       - name: Run implementation-planner agent
         env:
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
