@@ -1,0 +1,82 @@
+name: Copilot Review Handler
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  handle-copilot-review:
+    # Copilot のレビューのみを対象とする
+    if: >-
+      github.event.review.user.login == 'copilot[bot]' ||
+      github.event.review.user.login == 'github-copilot[bot]' ||
+      github.event.review.user.login == 'copilot'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - name: Post review handling start comment
+        id: start-comment
+        env:
+          GH_TOKEN: ${{ secrets.COPILOT_PAT }}
+        run: |
+          COMMENT_ID=$(gh api \
+            -X POST \
+            "/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
+            -f body="🔄 **レビュー対応開始**: review-responder エージェントがCopilotのレビューコメントを処理中です..." \
+            --jq '.id')
+          echo "id=$COMMENT_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Run review-responder agent
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
+          GH_TOKEN: ${{ secrets.COPILOT_PAT }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          OWNER=$(echo "$GITHUB_REPOSITORY" | cut -d'/' -f1)
+          REPO=$(echo "$GITHUB_REPOSITORY" | cut -d'/' -f2)
+
+          gh copilot -- \
+            --agent review-responder \
+            --allow-all \
+            -p "PR #${PR_NUMBER} に対するCopilotのレビューコメントを処理してください。
+          リポジトリ: ${GITHUB_REPOSITORY}
+          オーナー: ${OWNER}
+          リポジトリ名: ${REPO}
+          PR番号: ${PR_NUMBER}
+
+          手順:
+          1. gh api でPRのレビューコメントを取得する
+          2. 各コメントを評価する
+          3. 正しい提案はコードに適用してコミット・プッシュする
+          4. 不適切な提案はresolveしてコメントで理由を残す
+          5. 最終サマリーをPRにコメントする"
+
+      - name: Push any committed changes
+        env:
+          GH_TOKEN: ${{ secrets.COPILOT_PAT }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || git commit -m "fix: apply copilot review suggestions for PR #${{ github.event.pull_request.number }}"
+          git push origin "${{ github.event.pull_request.head.ref }}"
+
+      - name: Update comment to complete
+        env:
+          GH_TOKEN: ${{ secrets.COPILOT_PAT }}
+        run: |
+          gh api \
+            -X PATCH \
+            "/repos/${{ github.repository }}/issues/comments/${{ steps.start-comment.outputs.id }}" \
+            -f body="✅ **レビュー対応完了**: review-responder エージェントによるCopilotレビューの処理が完了しました。"
