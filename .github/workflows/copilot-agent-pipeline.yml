@@ -1,0 +1,103 @@
+name: Copilot Agent Pipeline
+
+on:
+  issues:
+    types: [opened, reopened]
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  plan-and-implement:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup GitHub Copilot CLI
+        run: gh extension install github/gh-copilot
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get issue content
+        id: issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+        run: |
+          ISSUE_BODY=$(gh issue view "$ISSUE_NUMBER" --json body -q '.body')
+          echo "number=$ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "title=$ISSUE_TITLE" >> "$GITHUB_OUTPUT"
+          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          echo "body<<$EOF" >> "$GITHUB_OUTPUT"
+          echo "$ISSUE_BODY" >> "$GITHUB_OUTPUT"
+          echo "$EOF" >> "$GITHUB_OUTPUT"
+
+      # --- Planning Phase ---
+      - name: Post planning start comment
+        id: planning-comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          COMMENT_ID=$(gh api \
+            -X POST \
+            "/repos/${{ github.repository }}/issues/${{ steps.issue.outputs.number }}/comments" \
+            -f body="🔄 **Planning開始**: implementation-planner エージェントが計画を作成中です..." \
+            --jq '.id')
+          echo "id=$COMMENT_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Run implementation-planner agent
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_BODY: ${{ steps.issue.outputs.body }}
+        run: |
+          gh copilot -- \
+            --agent implementation-planner \
+            --allow-all \
+            -p "以下のIssueの内容に基づいて実装計画を作成してください。
+
+          Issue #${{ steps.issue.outputs.number }}: ${{ steps.issue.outputs.title }}
+
+          ${ISSUE_BODY}"
+
+      - name: Update planning comment to complete
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api \
+            -X PATCH \
+            "/repos/${{ github.repository }}/issues/comments/${{ steps.planning-comment.outputs.id }}" \
+            -f body="✅ **Planning完了**: implementation-planner エージェントによる計画作成が完了しました。"
+
+      # --- Implementation Phase ---
+      - name: Post implementation start comment
+        id: implementation-comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          COMMENT_ID=$(gh api \
+            -X POST \
+            "/repos/${{ github.repository }}/issues/${{ steps.issue.outputs.number }}/comments" \
+            -f body="🔄 **実装開始**: implementation-executor エージェントが実装を進めています..." \
+            --jq '.id')
+          echo "id=$COMMENT_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Run implementation-executor agent
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh copilot -- \
+            --agent implementation-executor \
+            --allow-all \
+            -p "plan/ フォルダ内の計画に基づいて実装を進めてください。対象Issue: #${{ steps.issue.outputs.number }} - ${{ steps.issue.outputs.title }}"
+
+      - name: Update implementation comment to complete
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api \
+            -X PATCH \
+            "/repos/${{ github.repository }}/issues/comments/${{ steps.implementation-comment.outputs.id }}" \
+            -f body="✅ **実装完了**: implementation-executor エージェントによる実装が完了しました。"
